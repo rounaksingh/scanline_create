@@ -1,0 +1,13 @@
+Written by :Rounak Singh
+Written on :18/10/2012
+
+This Program copies one bmp to another using the libbmp files or struct bmp.
+It just made for example purpose so it just doesn't take any arguement .
+Control it using the codes in bmp_copy.c .
+It may be included in future.
+
+Working Environment: Linux ,,, 
+Compiler: Gnu C(gcc) needed
+
+		For Windows u can try minGW C compiler. Google it.
+

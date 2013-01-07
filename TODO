@@ -1,0 +1,13 @@
+TODO file
+
+Author: Rounak SIngh 
+email: rounaksingh17@gmail.com
+
+This is a TODO file. It contains improvements list which 
+will be included in future.
+
+>This will now print only the Buffer_size or less . To make
+it print whole file.
+>More than one argument handling.
+>To clear the constraint on the Buffer_size.
+
