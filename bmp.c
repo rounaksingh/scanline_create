@@ -56,7 +56,10 @@ BMP_new (int w, int h)
 		free (nu);
 		return NULL;
 	}
-	memset (nu->pixels, 0, size);
+	
+	//For black image put 0
+	//For white image put 0xff
+	memset (nu->pixels, 0xFF, size);
 	return nu;
 }
 
