@@ -10,6 +10,7 @@
 //
 #define RET_LINE_CREATED 0
 #define RET_LINE_NOT_CREATED 1
+#define ERR_NOT_MALLOC 1
 //variables
 int width;
 int height;
@@ -21,11 +22,13 @@ int gap_bet_tx;
 int gap_bet_rx;
 int mean_dis;
 
+//GLOBAL for TESTING
+long frame_no;
+
 //Struct defination
 //structure for IR transmitter (LED)
 typedef struct
 {
-	unsigned char enable;
 	int pos_x;
 	int pos_y;
 }

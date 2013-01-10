@@ -6,15 +6,15 @@
 
 GCC = gcc
 
-SOURCE = bmp_create
+SOURCE = scanline_create
 SOURCE_EXT = c
 
-EXT_SOURCE = bmp.c
+EXT_SOURCE = bmp.c bmp_2_avi.c avilib.c
 
 all   :   compile
 
 compile : 
-	$(GCC) $(SOURCE).$(SOURCE_EXT) $(EXT_SOURCE) -o $(SOURCE) -lm   #-Wall
+	$(GCC) $(SOURCE).$(SOURCE_EXT) $(EXT_SOURCE) -o $(SOURCE) -lm  -std=c99 #-Wall 
 
 clean :
 	rm -f $(SOURCE)
