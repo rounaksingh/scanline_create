@@ -14,7 +14,9 @@ EXT_SOURCE = bmp.c bmp_2_avi.c avilib.c
 all   :   compile
 
 compile : 
-	$(GCC) $(SOURCE).$(SOURCE_EXT) $(EXT_SOURCE) -o $(SOURCE) -lm  -std=c99 #-Wall 
+	$(GCC) $(SOURCE).$(SOURCE_EXT) $(EXT_SOURCE) -o $(SOURCE) -std=c99 \
+	-L/usr/local/lib -lusb-1.0
+	#-Wall 
 
 clean :
 	rm -f $(SOURCE)

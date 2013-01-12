@@ -13,7 +13,9 @@
 *************************************************************************/
 
 #include<stdio.h>
+#include <stdlib.h>
 #include <malloc.h>
+#include "libusb.h"
 #include "avilib.h"
 #include "bmp.h"
 #include "scanline_create.h"
@@ -173,67 +175,159 @@ void IR_TX_free(IR_TX *ir_tx)
 }
 
 /*************************************************************
-	Function Name: get_rx_data
+	Function Name: rx_data_init
 	Parameters: void
-	Description: This function gets the TSOP output using 
-			USB & put it in a buffer.
-			But for now, it just initializes the buffer 
-			for testing purpose.
+	Description: This function initializes the memory space 
+			for the rx_data.
 	Return Value: It returns the pointer to the rx_data.
 			The pointer is of unsigned char type.
 			
 **************************************************************/
-unsigned char *get_rx_data()
+unsigned char *rx_data_init()
 {
-// USB Procedure
-	unsigned char *rx_data_local;
+
 	unsigned char *nu_rx_data;
+
 	//NEED TO CHANGE WHEN NO OF RECEIVER CHANGES
 	no_of_rx_data_bytes=12;
-
 	nu_rx_data=malloc(sizeof(unsigned char)*no_of_rx_data_bytes);
 	if(nu_rx_data==NULL)
 	return NULL;
 
-	
-	rx_data_local=nu_rx_data;
-
-	int i=0;
-	while(i<no_of_rx_data_bytes)
-	{
-		//0 means tsop output zero
-		//0xff means tsop output high for one module.
-		*rx_data_local=0x0;
-		
-		//Testing one by one..
-		//if(i==frame_no)
-		//*rx_data_local=0x80;
-		
-		rx_data_local++;
-		i++;
-	}
-	
 	return nu_rx_data;
-
-// USB Procedure
 
 }
 
 /************************************************************
 
-	Function Name: IR_TX_free
-	Parameter: IR_TX *
+	Function Name: rx_data_free
+	Parameter: rx_data pointer
 	Description: It dellocates the memory space.
 	Return Value:void
 	
 ************************************************************/
-void rx_data_free(unsigned char *rx_data)
+void rx_data_free(unsigned char *rx_data_ptr)
 {
-	if(rx_data== NULL)
+	if (rx_data_ptr==NULL)
 	return;
 	
-	//deallocate the memory space
-	free(rx_data);
+	//deallocates memory space.
+	free(rx_data_ptr);	
+}
+
+/************************************************************
+
+	Function Name: get_rx_data
+	Parameter: rx_data pointer
+	Description: It transfers the data via USB & put it in buffer
+				provided.
+	Return Value: SUCCESS or FAIL.
+	
+************************************************************/
+int get_rx_data(unsigned char *rx_data_ptr)
+{
+	int ret_val;
+	int transfer_retry=0;
+	while(1)
+	{
+		ret_val=libusb_bulk_transfer(devh,RX_EP,rx_data_ptr,RX_BUFFER_LENGTH,actual_length,TRANSFER_TIMEOUT);
+		
+		if(ret_val==LIBUSB_SUCCESS)
+		{
+			//break while loop
+			break;
+		}
+		/************************************
+		ADD RETRY VARIABLE.
+		AFTER CERTAIN NO OF RETRY IT WILL BREAK & EXIT.
+		
+		**************************************/
+		switch(ret_val)
+		{
+			case LIBUSB_ERROR_IO:
+			{
+				printf("libusb_bulk_transfer: Error Input/Output.\n");
+				break;
+			}
+			case LIBUSB_ERROR_INVALID_PARAM:
+			{
+				printf("libusb_bulk_transfer: Error-Invalid \
+				Parameter.\n");
+				break;
+			}
+			case LIBUSB_ERROR_ACCESS:
+			{
+				printf("libusb_bulk_transfer: Error-Access Denied\n.");
+				break;
+			}
+			case LIBUSB_ERROR_NO_DEVICE:
+			{
+				printf("libusb_bulk_transfer: Error-No Device with \
+				VID: %d & PID: %d Connected.\n",VID,PID);
+				break;
+			}
+			case LIBUSB_ERROR_NOT_FOUND:
+			{
+				printf("libusb_bulk_transfer: Error-Entity Not \
+				Found.\n");
+				break;
+			}
+			case LIBUSB_ERROR_BUSY:
+			{
+				printf("libusb_bulk_transfer: Error-Resource Busy.\n");
+				break;
+			}
+			case LIBUSB_ERROR_TIMEOUT:
+			{
+				printf("libusb_bulk_transfer: Error-Transfer \
+				Timeout.\n");
+				break;
+			}
+			case LIBUSB_ERROR_OVERFLOW:
+			{
+				printf("libusb_bulk_transfer: Error-Buffer Overflow.\n");
+				break;
+			}
+			case LIBUSB_ERROR_PIPE:
+			{
+				printf("libusb_bulk_transfer: Error-USB Pipe.\n");
+				break;
+			}
+			case LIBUSB_ERROR_INTERRUPTED:
+			{
+				printf("libusb_bulk_transfer: Error-System call \
+				interrupted.\n");
+				break;
+			}
+			case LIBUSB_ERROR_NO_MEM:
+			{
+				printf("libusb_bulk_transfer: Error-No Memory.\n");
+				break;
+			}
+			case LIBUSB_ERROR_NOT_SUPPORTED:
+			{
+				printf("libusb_bulk_transfer: Error-Operation not \
+				supported or unimplemented on this platform.\n");
+				break;
+			}
+			default:
+			{
+				printf("libusb_bulk_transfer: Error-Others.\n");
+				break;
+			}
+		
+		}
+
+		transfer_retry++;
+		if(transfer_retry>=MAX_TRANSFER_RETRY)
+		{
+			printf("No of Retry = %d.\n",MAX_TRANSFER_RETRY);
+			return TRANSFER_FAIL;
+		}
+
+	}
+
+	return TRANSFER_SUCCESS;
 }
 
 /************************************************************
@@ -309,15 +403,26 @@ int line_create_per_tx(BMP *bmp, IR_RX *ir_rx,int no_of_ir_rx, IR_TX *ir_tx, uns
 	Function Name: scan_line_create
 	Parameter: BMP *, IR_RX *,no_of_rx, IR_TX *, no_of_tx, rx_data & mask.
 	Description: This function creates scanlines between all IR_RXs
-			& IR_TXs using the rx_data bytes & mask provided. 
+			& IR_TXs using the rx_data bytes by get_rx_data provided. 
 	Return Value: it returns 0.		
 	
 *************************************************************/
-int scan_line_create(BMP *bmp, IR_RX *ir_rx,int no_of_ir_rx, IR_TX *ir_tx,int no_of_ir_tx,unsigned char *rx_data)
+int scan_line_create(BMP *bmp, IR_RX *ir_rx,int no_of_ir_rx, IR_TX *ir_tx,\
+int no_of_ir_tx,unsigned char *rx_data)
 {
 	int counter;
+	int ret_val;
 	for(counter=0;counter<no_of_ir_tx;counter++)
 	{
+		//GET RX DATA through USB
+		//it returns only two val SUCCESS or FAIL
+		ret_val=get_rx_data(rx_data);
+		if(ret_val==TRANSFER_FAIL)
+		{
+			printf("get_rx_data: Transfer Failed.\n");
+			return TRANSFER_FAIL;
+		}
+
 		line_create_per_tx(bmp,ir_rx,no_of_ir_rx,ir_tx,rx_data);
 		ir_tx++;
 	}
@@ -325,6 +430,22 @@ int scan_line_create(BMP *bmp, IR_RX *ir_rx,int no_of_ir_rx, IR_TX *ir_tx,int no
 	return 0;
 }
 
+int program_exit(int return_value, IR_RX *ir_rx,IR_TX *ir_tx,unsigned char *rx_data,\
+BMP *bmp,avi_t *avi,char *compressor,int *actual_length)
+{
+	//call memory deallocation functions for safe exit
+	libusb_exit(NULL);
+	IR_RX_free(ir_rx);
+	IR_TX_free(ir_tx);
+	rx_data_free(rx_data);	
+	BMP_delete (bmp);
+	AVI_close(avi);
+	free(compressor);
+	free(actual_length);
+	
+	return return_value;	
+	
+}
 /************************************************************
 	Function Name: main
 	Parameter: argc, * argv[].
@@ -352,7 +473,7 @@ int main(int argc,char *argv[],char *env[])
 	double fps;							//frame rate
 	//Frames per second
 	//fps=3.0;
-	fps=1.0;
+	fps=3.0;
 	
 	//Compression is important for init of avi header
 	//Compression needs 4 bytes of NULL So,,
@@ -361,7 +482,7 @@ int main(int argc,char *argv[],char *env[])
 	c=compressor;
 	for(int i=0;i<4;i++)
 	{
-		c=NULL;
+		*c=0;
 		c++;
 	}
 	/////////////////////////////////////////////////////////////////////////////
@@ -391,7 +512,10 @@ int main(int argc,char *argv[],char *env[])
 	//overlapping of scanline with eachother starts.
 	mean_dis=gap_bet_rx/4;
 	///////////////////////////////////////////////////////////////////////////////////
-	
+	//For libusb.. actual size defines the size of datatype for rx_data
+	actual_length=malloc(sizeof(int));
+	*actual_length=1;
+	/////////////////////////////////////////////////////////////////////////
 	
 	//initialization of the bmp pointer using width & height.
 	bmp=BMP_new(width,height);
@@ -400,7 +524,7 @@ int main(int argc,char *argv[],char *env[])
 	avi = AVI_open_output_file(avi_outfilename);
 	if (avi == 0) {
 	     fprintf(stderr, "error %s: %s\n", avi_outfilename, AVI_strerror());
-		return ERROR_AVI_FILE_OPEN;
+		program_exit(ERROR_AVI_FILE_OPEN,ir_rx_ptr,ir_tx_ptr,rx_data,bmp,avi,compressor,actual_length);
 	}
 	
 	//To set the property of the avi video
@@ -410,30 +534,69 @@ int main(int argc,char *argv[],char *env[])
 	ir_rx_ptr=ir_rx_init(no_ir_rx);
 	if(ir_rx_ptr==NULL)
 	{
-		printf("IR_RX_PTR: cannot allocate memory.");
-		return ERR_NOT_MALLOC;
+		printf("IR_RX_PTR: cannot allocate memory.\n");
+		program_exit(ERR_NOT_MALLOC,ir_rx_ptr,ir_tx_ptr,rx_data,bmp,avi,compressor,actual_length);
 	}
 	
 	ir_tx_ptr=ir_tx_init(no_ir_tx);
 	if(ir_tx_ptr==NULL)
 	{
-		printf("IR_TX_PTR: cannot allocate memory.");
-		return ERR_NOT_MALLOC;
+		printf("IR_TX_PTR: cannot allocate memory.\n");
+		program_exit(ERR_NOT_MALLOC,ir_rx_ptr,ir_tx_ptr,rx_data,bmp,avi,compressor,actual_length);
 	}
-///////////////////////////////////////////////////////////////////////////////////////
-
-	//create frame for avi
-	//one frame means forming image for all IR_RX & IR_TX for all rx_data
-	for(frame_no=1;frame_no<=12;frame_no++)
+	
+	//Initialize the rx_data
+	rx_data=rx_data_init();
+	if(rx_data==NULL)
 	{
-		//GET RX DATA through USB
-		rx_data=get_rx_data();
-		if(rx_data==NULL)
+		printf("rx_data: cannot allocate memory.\n");
+		program_exit(ERR_NOT_MALLOC,ir_rx_ptr,ir_tx_ptr,rx_data,bmp,avi,compressor,actual_length);
+ 	}
+	
+	//Intialization of libusb
+	ret_val = libusb_init(NULL);
+	if (ret_val < 0)
+	{
+		printf("libusb_init: Error initializing.\n");
+		program_exit(ERR_NOT_INIT_LIBUSB,ir_rx_ptr,ir_tx_ptr,rx_data,bmp,avi,compressor,actual_length);
+	}
+	
+	//Now waiting for the device to connect
+	//device with VID & PID (defined in scanline_create.h) 
+	printf("\nWaiting for device to connect...\n");
+	while(1)
+	{
+		//
+		sleep(2);
+		//
+		devh = libusb_open_device_with_vid_pid(NULL,VID,PID);;
+		//continue looping if device not found.
+		if (devh == NULL)
 		{
-			printf("get_rx_data: cannot allocate memory");
+			//printf("libusb_open_device: Error opening the device.");
+			//return ERR_NOT_INIT_LIBUSB;
+			continue;
+		}
+		else
+		{
+			printf("libusb_open_device: Device with VID:%d & \
+			PID:%d opened.\n",VID,PID);
 			break;
 		}
+		
+		
+	}
 	
+		
+///////////////////////////////////////////////////////////////////////////////////////
+	
+	printf("\nInitializing Receiver...\n");
+	
+	//create frame for avi
+	//one frame means forming image for all IR_RX & IR_TX for all rx_data
+	for(frame_no=1;frame_no<=MAX_FRAME_NO;frame_no++)
+	{
+		
 		//CREATE A bmp pointer of scanlines using the rx_data
 		scan_line_create(bmp,ir_rx_ptr,no_ir_rx,ir_tx_ptr,no_ir_tx,rx_data);
 	
@@ -461,14 +624,5 @@ int main(int argc,char *argv[],char *env[])
 	//print no_of_frame processed or formed.
 	printf("\nNo of frames in avi outfile: %ld\n",AVI_video_frames(avi));
 	
-	//call memory deallocation functions for safe exit
-	IR_RX_free(ir_rx_ptr);
-	IR_TX_free(ir_tx_ptr);
-	rx_data_free(rx_data);	
-	BMP_delete (bmp);
-	free(compressor);
-	AVI_close(avi);
-	
-	
-	return 0;
+	program_exit(0,ir_rx_ptr,ir_tx_ptr,rx_data,bmp,avi,compressor,actual_length);	
 }
