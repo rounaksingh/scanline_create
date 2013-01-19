@@ -189,8 +189,8 @@ unsigned char *rx_data_init()
 	unsigned char *nu_rx_data;
 
 	//NEED TO CHANGE WHEN NO OF RECEIVER CHANGES
-	no_of_rx_data_bytes=12;
-	nu_rx_data=malloc(sizeof(unsigned char)*no_of_rx_data_bytes);
+	//no_of_rx_data_bytes=12;
+	nu_rx_data=malloc(sizeof(unsigned char)*RX_BUFFER_LENGTH);
 	if(nu_rx_data==NULL)
 	return NULL;
 
@@ -237,11 +237,8 @@ int get_rx_data(unsigned char *rx_data_ptr)
 			//break while loop
 			break;
 		}
-		/************************************
-		ADD RETRY VARIABLE.
-		AFTER CERTAIN NO OF RETRY IT WILL BREAK & EXIT.
 		
-		**************************************/
+		//Check for ret_val from function "libusb_bulk_transfer"
 		switch(ret_val)
 		{
 			case LIBUSB_ERROR_IO:
@@ -317,8 +314,10 @@ int get_rx_data(unsigned char *rx_data_ptr)
 			}
 		
 		}
-
+		
+		//retry increases whenever transfer fails
 		transfer_retry++;
+		//if retry fails for MAX_TRANSFER_RETRY times than return to calling function.
 		if(transfer_retry>=MAX_TRANSFER_RETRY)
 		{
 			printf("No of Retry = %d.\n",MAX_TRANSFER_RETRY);
@@ -345,8 +344,10 @@ int line_create_per_tx_per_rx(BMP * bmp, IR_RX * ir_rx, IR_TX * ir_tx, unsigned 
 	//i.e. ! is used
 	if(!((*rx_data) & mask))
 	{
+		//This is done for creating widthen line on receiver side.
 		for(counter=-(mean_dis);counter<=mean_dis;counter++)
 		{
+			//draw line from rx to tx
 			BMP_line(bmp,(ir_rx->pos_x)+counter,ir_rx->pos_y,ir_tx->pos_x,ir_tx->pos_y,RGB_BLACK);
 		}
 		return RET_LINE_CREATED;
@@ -367,6 +368,7 @@ int line_create_per_tx_per_rx(BMP * bmp, IR_RX * ir_rx, IR_TX * ir_tx, unsigned 
 *************************************************************/
 int line_create_per_tx(BMP *bmp, IR_RX *ir_rx,int no_of_ir_rx, IR_TX *ir_tx, unsigned char *rx_data)
 {
+	//mask is to get one bit
 	unsigned char mask=0x80;
 	int ret_val;
 	int counter=0;
@@ -414,7 +416,7 @@ int no_of_ir_tx,unsigned char *rx_data)
 	int ret_val;
 	for(counter=0;counter<no_of_ir_tx;counter++)
 	{
-		//GET RX DATA through USB
+		//GET RX DATA for one ir_tx through USB
 		//it returns only two val SUCCESS or FAIL
 		ret_val=get_rx_data(rx_data);
 		if(ret_val==TRANSFER_FAIL)
@@ -430,6 +432,14 @@ int no_of_ir_tx,unsigned char *rx_data)
 	return 0;
 }
 
+/************************************************************
+	Function Name: program_exit
+	Parameter: return_value,BMP *, IR_RX *,IR_TX *, *rx_data,bmp *, avi*,\
+			*compressor,*actual_length .
+	Description: This function free all memory space acquired by program.
+	Return Value: it returns return_value.
+	
+*************************************************************/
 int program_exit(int return_value, IR_RX *ir_rx,IR_TX *ir_tx,unsigned char *rx_data,\
 BMP *bmp,avi_t *avi,char *compressor,int *actual_length)
 {
@@ -446,6 +456,7 @@ BMP *bmp,avi_t *avi,char *compressor,int *actual_length)
 	return return_value;	
 	
 }
+
 /************************************************************
 	Function Name: main
 	Parameter: argc, * argv[].
@@ -461,6 +472,7 @@ int main(int argc,char *argv[],char *env[])
 	//*outfilename="";
 	//char *outfilename="test_3.bmp";
 	
+	
 	BMP *bmp;
 	int ret_val;
 	IR_RX *ir_rx_ptr;
@@ -473,7 +485,7 @@ int main(int argc,char *argv[],char *env[])
 	double fps;							//frame rate
 	//Frames per second
 	//fps=3.0;
-	fps=3.0;
+	fps=20.0;
 	
 	//Compression is important for init of avi header
 	//Compression needs 4 bytes of NULL So,,
@@ -492,8 +504,10 @@ int main(int argc,char *argv[],char *env[])
 	//Most of the values, that are needed to provide, are set here.
 	/////////////////////////////////////////////////////////////////////////////
 	no_ir_rx=96;
+	//no_ir_rx=8;
 	//no_ir_tx=5;
 	no_ir_tx=12;
+	//no_ir_tx=1;
 	
 	//width & height of the bmp image
 	//width must be divided by the no_of_rx & no_of tx.
@@ -520,15 +534,7 @@ int main(int argc,char *argv[],char *env[])
 	//initialization of the bmp pointer using width & height.
 	bmp=BMP_new(width,height);
 	
-	//To create output file with name=avi_outfilename
-	avi = AVI_open_output_file(avi_outfilename);
-	if (avi == 0) {
-	     fprintf(stderr, "error %s: %s\n", avi_outfilename, AVI_strerror());
-		program_exit(ERROR_AVI_FILE_OPEN,ir_rx_ptr,ir_tx_ptr,rx_data,bmp,avi,compressor,actual_length);
-	}
 	
-	//To set the property of the avi video
-	AVI_set_video(avi,width,height,fps,compressor);
 	
 	//IR RX & TX Initialization
 	ir_rx_ptr=ir_rx_init(no_ir_rx);
@@ -566,10 +572,13 @@ int main(int argc,char *argv[],char *env[])
 	printf("\nWaiting for device to connect...\n");
 	while(1)
 	{
-		//
+		//This is added to reduce CPU usage.
+		//This will create 2 second delay for connecting to device
 		sleep(2);
 		//
-		devh = libusb_open_device_with_vid_pid(NULL,VID,PID);;
+		//open device with VID & PID 
+		devh = libusb_open_device_with_vid_pid(NULL,VID,PID);
+		
 		//continue looping if device not found.
 		if (devh == NULL)
 		{
@@ -578,7 +587,8 @@ int main(int argc,char *argv[],char *env[])
 			continue;
 		}
 		else
-		{
+		{	
+			//if device found, break the loop
 			printf("libusb_open_device: Device with VID:%d & \
 			PID:%d opened.\n",VID,PID);
 			break;
@@ -594,35 +604,52 @@ int main(int argc,char *argv[],char *env[])
 	
 	//create frame for avi
 	//one frame means forming image for all IR_RX & IR_TX for all rx_data
-	for(frame_no=1;frame_no<=MAX_FRAME_NO;frame_no++)
+	while(1)
 	{
-		
-		//CREATE A bmp pointer of scanlines using the rx_data
-		scan_line_create(bmp,ir_rx_ptr,no_ir_rx,ir_tx_ptr,no_ir_tx,rx_data);
-	
-		//line_create_per_tx_per_rx(bmp,ir_rx_ptr,ir_tx_ptr,rx_data,0x80);
-	//	printf("%d %d\n",ir_rx_ptr->pos_x,ir_rx_ptr->pos_y);
-	//	BMP_write (bmp, outfilename);
-	
-		//convert bmp to frame & write to avi outfile
-	 	int ret_val=bmp_2_frame(bmp,avi,frame_no);
-	 	if(ret_val==AVI_ERR_WRITE)
-	 	{
-	 		printf("\nAVI Error:Frame Write\n");
-	 		break;
-	 	}
-	 	if(ret_val==AVI_ERR_NO_MEM )
-	 	{
-	 		printf("\nAVI Error:No memory for Temporary Buffer\n");
-	 		break;
-	 	}
-	 	
-	 	//after one frame is created do clear the bmp for next frame
-	 	BMP_clear (bmp, RGB_WHITE);
+		//To create output file with name=avi_outfilename
+	avi = AVI_open_output_file(avi_outfilename);
+	if (avi == 0) {
+	     fprintf(stderr, "error %s: %s\n", avi_outfilename, AVI_strerror());
+		program_exit(ERROR_AVI_FILE_OPEN,ir_rx_ptr,ir_tx_ptr,rx_data,bmp,avi,compressor,actual_length);
 	}
 	
+	//To set the property of the avi video
+	AVI_set_video(avi,width,height,fps,compressor);
+	
+		for(frame_no=1;frame_no<=MAX_FRAME_NO;frame_no++)
+		{
+		
+			//CREATE A bmp pointer of scanlines using the rx_data
+			scan_line_create(bmp,ir_rx_ptr,no_ir_rx,ir_tx_ptr,no_ir_tx,rx_data);
+	
+			//line_create_per_tx_per_rx(bmp,ir_rx_ptr,ir_tx_ptr,rx_data,0x80);
+		//	printf("%d %d\n",ir_rx_ptr->pos_x,ir_rx_ptr->pos_y);
+		//	BMP_write (bmp, outfilename);
+	
+			//convert bmp to frame & write to avi outfile
+		 	int ret_val=bmp_2_frame(bmp,avi,frame_no);
+		 	if(ret_val==AVI_ERR_WRITE)
+		 	{
+		 		printf("\nAVI Error:Frame Write\n");
+		 		break;
+		 	}
+		 	if(ret_val==AVI_ERR_NO_MEM )
+		 	{
+		 		printf("\nAVI Error:No memory for Temporary Buffer\n");
+		 		break;
+		 	}
+		 	
+		 	//after one frame is created do clear the bmp for next frame
+		 	BMP_clear (bmp, RGB_WHITE);
+		}
+		
 	//print no_of_frame processed or formed.
 	printf("\nNo of frames in avi outfile: %ld\n",AVI_video_frames(avi));
-	
+		AVI_close(avi);
+		}	
+		
+		
 	program_exit(0,ir_rx_ptr,ir_tx_ptr,rx_data,bmp,avi,compressor,actual_length);	
+	
+	
 }

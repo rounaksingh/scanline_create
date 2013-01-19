@@ -7,10 +7,10 @@
 #define SCANLINE_CREATE_H
 
 //Macros
-#define GAP_BETWEEN_RX	16
-#define GAP_BETWEEN_TX 	20
+//#define GAP_BETWEEN_RX	16
+//#define GAP_BETWEEN_TX 	20
 #define RX_BUFFER_LENGTH	12
-#define MAX_FRAME_NO		6
+#define MAX_FRAME_NO		10
 
 //
 #define RET_LINE_CREATED		0
