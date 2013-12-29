@@ -12,14 +12,16 @@
 	
 *************************************************************************/
 
-#include<stdio.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <malloc.h>
+#include <signal.h>
 #include "libusb.h"
 #include "avilib.h"
 #include "bmp.h"
 #include "scanline_create.h"
 #include "bmp_2_avi.h"
+
 
 /***********************************************************
 
@@ -53,12 +55,12 @@ IR_RX * ir_rx_init(int no_of_rx)
 	
 	//Providing value to IR_RX *
 	//x changes depending upon gap_bet_rx & rx_counter
-	//y=0
-	//Means TOP line of sensors.
+	//y=height
+	//Means BOTTOM line of sensors.
 	while(rx_counter<(no_of_rx/2))
 	{
 		nu_ir_rx_temp->pos_x=(gap_bet_rx/2)+(gap_bet_rx * rx_counter);
-		nu_ir_rx_temp->pos_y=0;
+		nu_ir_rx_temp->pos_y=height;
 		nu_ir_rx_temp++;
 		rx_counter++;
 	}
@@ -68,12 +70,12 @@ IR_RX * ir_rx_init(int no_of_rx)
 	
 	//Providing value to IR_RX *
 	//x changes depending upon gap_bet_rx & rx_counter
-	//y=height
-	//Means BOTTOM line of sensors.
+	//y=0
+	//Means TOP line of sensors.
 	while(rx_counter<(no_of_rx/2))
 	{
-		nu_ir_rx_temp->pos_x=(gap_bet_rx/2)+(gap_bet_rx * rx_counter);
-		nu_ir_rx_temp->pos_y=height;
+		nu_ir_rx_temp->pos_x=(gap_bet_rx/2)+(gap_bet_rx * ((no_of_rx/2)-1-rx_counter));
+		nu_ir_rx_temp->pos_y=0;
 		nu_ir_rx_temp++;
 		rx_counter++;
 	}
@@ -148,7 +150,7 @@ IR_TX * ir_tx_init(int no_of_tx)
 	//Means BOTTOM line of transmitters.
 	while(tx_counter<(no_of_tx/2))
 	{
-		nu_ir_tx_local->pos_x=(gap_bet_tx/2)+(gap_bet_tx * tx_counter);
+		nu_ir_tx_local->pos_x=(gap_bet_tx/2)+(gap_bet_tx * ((no_of_tx/2)-1-tx_counter));
 		nu_ir_tx_local->pos_y=height;
 		nu_ir_tx_local++;
 		tx_counter++;
@@ -458,6 +460,24 @@ BMP *bmp,avi_t *avi,char *compressor,int *actual_length)
 }
 
 /************************************************************
+	Function Name: signal_callback_handler
+	Parameter: signum
+	Description: This function handles SIGTERM(15) (kill), SIGTSTP(20) (Ctrl+Z)
+				& SIGINT(2) (Ctrl+C)
+	Return Value: void.
+	
+*************************************************************/
+void signal_callback_handler(int signum)
+{
+   printf("\nCaught signal %d\n",signum);
+   
+   // Cleanup and close up stuff
+   //return value is signal number
+	program_exit(signum,ir_rx_ptr,ir_tx_ptr,rx_data,bmp,avi,compressor,actual_length);	
+	
+}
+
+/************************************************************
 	Function Name: main
 	Parameter: argc, * argv[].
 	Description: This function is main, responsible for 
@@ -468,28 +488,20 @@ BMP *bmp,avi_t *avi,char *compressor,int *actual_length)
 *************************************************************/
 int main(int argc,char *argv[],char *env[])
 {
-	//char *outfilename=malloc(sizeof(unsigned char)*30);
-	//*outfilename="";
-	//char *outfilename="test_3.bmp";
+	// Register signal and signal handler
+   	signal(SIGINT, signal_callback_handler);
+	signal(SIGTSTP, signal_callback_handler);
+	signal(SIGTERM, signal_callback_handler);
 	
-	
-	BMP *bmp;
 	int ret_val;
-	IR_RX *ir_rx_ptr;
-	IR_TX *ir_tx_ptr;
-	
-	//////////////////////////////////////////////////////////////////////////////
-	//Declaration & Initialization of the AVI video variables
-	avi_t *avi = NULL;						//points to opened avi file
-	char *avi_outfilename="test.avi";			//avi outfilename
-	double fps;							//frame rate
+
 	//Frames per second
 	//fps=3.0;
-	fps=20.0;
+	fps=10.0;
 	
 	//Compression is important for init of avi header
 	//Compression needs 4 bytes of NULL So,,
-	char *compressor=malloc(4); 		//4 bytes for type of compressor
+	compressor=malloc(4); 		//4 bytes for type of compressor
 	char *c;
 	c=compressor;
 	for(int i=0;i<4;i++)
@@ -524,7 +536,7 @@ int main(int argc,char *argv[],char *env[])
 	//so this mean distance is calculated from rx.
 	//It should be less than gap_bet_rx/2, otherwise 
 	//overlapping of scanline with eachother starts.
-	mean_dis=gap_bet_rx/4;
+	mean_dis=gap_bet_rx/3;
 	///////////////////////////////////////////////////////////////////////////////////
 	//For libusb.. actual size defines the size of datatype for rx_data
 	actual_length=malloc(sizeof(int));

@@ -10,7 +10,7 @@
 //#define GAP_BETWEEN_RX	16
 //#define GAP_BETWEEN_TX 	20
 #define RX_BUFFER_LENGTH	12
-#define MAX_FRAME_NO		10
+#define MAX_FRAME_NO		5
 
 //
 #define RET_LINE_CREATED		0
@@ -37,22 +37,6 @@
 #define MAX_TRANSFER_RETRY		5	
 
 
-//variables
-int width;
-int height;
-int no_ir_rx;
-int no_ir_tx;
-unsigned char *rx_data;			//per byte : 8 receiver output
-int no_of_rx_data_bytes;
-int gap_bet_tx;
-int gap_bet_rx;
-int mean_dis;
-static struct libusb_device_handle *devh = NULL;
-int *actual_length;
-
-//GLOBAL for TESTING
-long frame_no;
-
 //Struct defination
 //structure for IR transmitter (LED)
 typedef struct
@@ -70,6 +54,33 @@ typedef struct
 }
 IR_RX;
 
+//variables
+int width;
+int height;
+int no_ir_rx;
+int no_ir_tx;
+unsigned char *rx_data;			//per byte : 8 receiver output
+int no_of_rx_data_bytes;
+int gap_bet_tx;
+int gap_bet_rx;
+int mean_dis;
+static struct libusb_device_handle *devh = NULL;
+int *actual_length;
+
+//GLOBAL for TESTING
+long frame_no;
+
+//GLOBAL BUFFER VARIABLES
+BMP *bmp;
+IR_RX *ir_rx_ptr;
+IR_TX *ir_tx_ptr;
+	
+//////////////////////////////////////////////////////////////////////////////
+//Declaration & Initialization of the AVI video variables
+avi_t *avi = NULL;						//points to opened avi file
+char *avi_outfilename="test.avi";			//avi outfilename
+double fps;							//frame rate
+char *compressor;
 
 //function prototypes
 IR_RX * ir_rx_init(int no_of_rx);
